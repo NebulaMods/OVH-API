@@ -121,12 +121,12 @@ namespace OVHAPI
                     var database = new Services.DatabaseService();
                     foreach (var IP in IPs)
                     {
-                        var idk = IP.Split('/');
-                        var newip = idk[0];
+
+                        var newip = IP.Split('/')[0];
                         var entry = database.IPs.Find(IPAddress.Parse(newip));
                         if (entry == null && Uri.CheckHostName(newip) != UriHostNameType.IPv6)
                         {
-                            if (idk[1] == "32")
+                            if (IP.Split('/')[1] == "32")
                             {
                                 var Info = JsonSerializer.Deserialize<IPInfo>(OVHCloud.GetAsync($"/ip/{newip}").Result);
                                 database.IPs.Add(new Database.IPSchema
@@ -144,13 +144,12 @@ namespace OVHAPI
                             else
                             {
                                 //var Info = JsonSerializer.Deserialize<IPInfo>(OVHCloud.GetAsync($"/ip/{newip}/30").Result);
-
                                 IPAddressRange Range = IPAddressRange.Parse(IP);
-                                foreach (var ip in Range)
+                                foreach (var IPAddress in Range)
                                 {
                                     database.IPs.Add(new Database.IPSchema
                                     {
-                                        IP = ip,
+                                        IP = IPAddress,
                                         Server = "N/A",
                                         Description = "N/A",
                                         Geolocation = CountryCodeConverter(null),
@@ -207,7 +206,8 @@ namespace OVHAPI
             public string ipOnMitigation { get; set; }
             public bool permanent { get; set; }
         }
-        public static void Derp()
+
+        public static void Detection()
         {
             Console.WriteLine("starting attack detection");
             new Thread(() =>
@@ -225,14 +225,12 @@ namespace OVHAPI
                                 if (IP.UnderAttack)
                                 {
                                     //execute notify
-                                    attackdone(IP);
+                                    AttackDetection(IP);
                                 }
-                                //else
-                                    //Console.WriteLine("not under attack");
                             }
                             else
                             {
-                                //checking perm miti ips
+                                //checking permanent mitigation ips
                                 IPMitigationStats MitigationInfo = null;
                                 try
                                 {
@@ -246,24 +244,19 @@ namespace OVHAPI
                                             if (!IP.UnderAttack)
                                             {
                                                 //notify
-                                                attackdetected(IP);
+                                                AttackDetected(IP);
                                             }
                                             break;
                                         default:
                                             //notify
                                             if (IP.UnderAttack)
-                                                attackdone(IP);
-                                            //else
-                                                //Console.WriteLine("not under attack");
+                                                AttackDetection(IP);
                                             break;
                                     }
-                                //else
-                                    //Console.WriteLine("not under attack");
                             }
                         }
-                        catch(Exception e)
+                        catch(Exception)
                         {
-
                         }
                     }
                     Thread.Sleep(TimeSpan.FromSeconds(5));
@@ -272,7 +265,7 @@ namespace OVHAPI
             }).Start();
         }
 
-        public static void attackdetected(Database.IPSchema IP)
+        public static void AttackDetected(Database.IPSchema IP)
         {
             //log attack
             var database = new Services.DatabaseService();
@@ -287,7 +280,6 @@ namespace OVHAPI
             });
             database.IPs.Find(IP).UnderAttack = true;
             database.SaveChanges();
-            //https://discord.com/api/webhooks/872579475773218836/4Liu_SEs13xGhRNp0DjsmUvf7Wx9NYV_O_7KAp4RHUMlGj4ZBk8wzvH3zGydHFCsaktp
             
             var client = new DiscordWebhookClient(database.Setttings.FirstOrDefault(x => x.ProfileName == Profile).DiscordWebHookUrl);
             var RichEmbed = new EmbedBuilder
@@ -321,22 +313,21 @@ namespace OVHAPI
                 }
             }
         }
-        public static void attackdone(Database.IPSchema IP)
+        public static void AttackDetection(Database.IPSchema IP)
         {
             DateTime complete = DateTime.Now;
             var database = new Services.DatabaseService();
-            Database.LogsSchema.AttackLogs lol = null;
-            foreach (var idk in database.Attacks)
+            Database.LogsSchema.AttackLogs Logs = null;
+            foreach (var Attacks in database.Attacks)
             {
-                if (idk.Active && idk.IPAttacked == IP.IP)
-                    lol = idk;
+                if (Attacks.Active && Attacks.IPAttacked == IP.IP)
+                    Logs = Attacks;
             }
-            lol.EndingTime = complete;
-            lol.Duration = $"{Math.Round((complete - lol.DetectionTime).TotalMinutes, 2)} Minutes";
-            lol.Active = false;
+            Logs.EndingTime = complete;
+            Logs.Duration = $"{Math.Round((complete - Logs.DetectionTime).TotalMinutes, 2)} Minutes";
+            Logs.Active = false;
             database.IPs.Find(IP).UnderAttack = false;
             database.SaveChanges();
-            //https://discord.com/api/webhooks/872579475773218836/4Liu_SEs13xGhRNp0DjsmUvf7Wx9NYV_O_7KAp4RHUMlGj4ZBk8wzvH3zGydHFCsaktp
             var client = new DiscordWebhookClient(database.Setttings.FirstOrDefault(x => x.ProfileName == Profile).DiscordWebHookUrl);
             var RichEmbed = new EmbedBuilder
             {
@@ -344,14 +335,14 @@ namespace OVHAPI
                 Description = "OVH has removed this IP from active mitigation.",
                 Author = new EmbedAuthorBuilder().WithName($"Nebula Mods Inc. | OVH API Beta V{Assembly.GetExecutingAssembly().GetName().Version}").WithUrl("https://nebulamods.ca").WithIconUrl("https://nebulamods.ca/content/media/images/Home.png"),
                 Url = "https://nebulamods.ca",
-                Footer = new EmbedFooterBuilder().WithText($"No Longer Detected: {lol.EndingTime:h:mm:ss tt MMMM dd/yyyy} ADT").WithIconUrl("https://nebulamods.ca/content/media/images/protection.png"),//need new picture
-                ThumbnailUrl = database.IPs.FirstOrDefault(x => x.IP == lol.IPAttacked).FlagLink,
+                Footer = new EmbedFooterBuilder().WithText($"No Longer Detected: {Logs.EndingTime:h:mm:ss tt MMMM dd/yyyy} ADT").WithIconUrl("https://nebulamods.ca/content/media/images/protection.png"),//need new picture
+                ThumbnailUrl = database.IPs.FirstOrDefault(x => x.IP == Logs.IPAttacked).FlagLink,
                 Color = RandomDiscordColour(),
                 Fields = new List<EmbedFieldBuilder>()
                     {
                         new EmbedFieldBuilder().WithName("Server").WithValue(IP.Server).WithIsInline(true),
                         new EmbedFieldBuilder().WithName("IP Address").WithValue(IP.IP.ToString()).WithIsInline(true),
-                        new EmbedFieldBuilder().WithName("Duration").WithValue(lol.Duration).WithIsInline(true),
+                        new EmbedFieldBuilder().WithName("Duration").WithValue(Logs.Duration).WithIsInline(true),
 
                     }
             }.Build();

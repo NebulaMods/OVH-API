@@ -28,20 +28,20 @@ namespace OVHAPI.Services
                         Environment.Exit(0);
                         break;
                     case "help":
-                        Console.WriteLine("\nlogin\nfetch ips\nmonitor\nquit\n");
+                        Console.WriteLine("\nLogin\nFetch ips\nMonitor\nQuit\n");
                         break;
                     case "login":
                         if (!Utilities.Login())
-                            Console.WriteLine("failed to login");
+                            Console.WriteLine("Failed to login");
                             break;
-                    case "fetch ips":
+                    case "Fetch IPs":
                         await Utilities.FetchIPs();
                         break;
-                    case "monitor":
+                    case "Monitor":
                         if (Utilities.Login())
-                            Utilities.Derp();
+                            Utilities.Detection();
                         else
-                            Console.WriteLine("failed to login");
+                            Console.WriteLine("Failed to login");
                         break;
                     default:
                         Console.WriteLine("Error, command doesn't exist, please try again. Type 'Help' to view the available commands.");
